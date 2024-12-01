@@ -38,8 +38,10 @@ fn solve1(input: []const u8, allocator: Allocator) !u32 {
 fn solve2(input: []const u8, allocator: Allocator) !u32 {
   var l1 = std.ArrayList(u32).init(allocator);
   defer l1.deinit();
+
   var countMap = std.AutoHashMap(u32, u32).init(allocator);
   defer countMap.deinit();
+
   var iterator = std.mem.tokenizeScalar(u8, input, '\n');
 
   while (iterator.next()) |line| {
@@ -76,14 +78,13 @@ pub fn main() !void {
   );
   defer file.close();
 
-  var buffer: [1000000]u8 = undefined;
-  _ = try file.readAll(&buffer);
+  const buffer = try file.readToEndAlloc(gpa, 1000000);
 
-  // const res = try solve1(&buffer, gpa);
-  //
-  // std.debug.print("Part 1: {d}\n", .{ res });
+  const res = try solve1(buffer, gpa);
 
-  const res2 = try solve2(&buffer, gpa);
+  std.debug.print("Part 1: {d}\n", .{ res });
+
+  const res2 = try solve2(buffer, gpa);
 
   std.debug.print("Part 2: {d}\n", .{ res2 });
 }
