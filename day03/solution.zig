@@ -162,5 +162,5 @@ test "part 2 - simple" {
 
     const res = try solve2(input, gpa);
 
-    try std.testing.expectEqual(161, res);
+    try std.testing.expectEqual(48, res);
 }
