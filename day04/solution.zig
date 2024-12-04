@@ -30,7 +30,7 @@ fn solve1(input: []const u8, alloc: Allocator) !usize {
             const xd: isize = @as(isize, @intCast(x)) + p[1] * d;
 
             if (yd >= 0 and yd < rows.items.len and xd >= 0 and xd < rows.items[y].len) {
-              if (rows.items[@as(usize, @intCast(yd))][@as(usize, @intCast(xd))] != WORD[d]) {
+              if (rows.items[@intCast(yd)][@intCast(xd)] != WORD[d]) {
                 continue :dir;
               }
             } else {
@@ -79,7 +79,7 @@ fn solve2(input: []const u8, alloc: Allocator) !usize {
           const xd: isize = @as(isize, @intCast(x)) + p[1];
 
           if (yd >= 0 and yd < rows.items.len and xd >= 0 and xd < rows.items[y].len) {
-            if (rows.items[@as(usize, @intCast(yd))][@as(usize, @intCast(xd))] != WORD2[idx]) {
+            if (rows.items[@intCast(yd)][@intCast(xd)] != WORD2[idx]) {
               continue :dir;
             }
           } else {
