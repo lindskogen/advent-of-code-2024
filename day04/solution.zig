@@ -8,7 +8,7 @@ const dirs1 = [_]Pair{ .{ -1, 0 }, .{ -1, -1 }, .{ -1, 1 }, .{ 1, 0 }, .{ 1, -1 
 const WORD = "XMAS";
 
 fn solve1(input: []const u8, _: Allocator) !usize {
-    const rows = try toFixedLineLengthBuffer(input);
+    const rows = try FixedLineLengthBuffer.init(input);
 
     var count: usize = 0;
 
@@ -45,7 +45,7 @@ const dirs2 = [_][2]Pair{
 const WORD2 = "MS";
 
 fn solve2(input: []const u8, _: Allocator) !usize {
-    const rows = try toFixedLineLengthBuffer(input);
+    const rows = try FixedLineLengthBuffer.init(input);
 
     var count: usize = 0;
 
@@ -101,94 +101,87 @@ pub fn main() !void {
     std.debug.print("Part 2: {d}\n", .{res2});
 }
 
-
 const FixedLineLengthBuffer = struct {
-  line_length: usize,
-  total_lines: usize,
-  text: []const u8,
+    line_length: usize,
+    total_lines: usize,
+    text: []const u8,
 
-  pub fn get_signed(self: @This(), row: isize, col: isize) ?u8 {
-    if (row < 0 or col < 0) {
-      return null;
-    } else {
-      return self.get(@intCast(row), @intCast(col));
-    }
-  }
+    pub fn init(text: []const u8) !@This() {
+        var count = std.mem.count(u8, text, "\n");
+        if (text[text.len - 1] != '\n') {
+            count += 1;
+        }
+        const line_length = std.mem.indexOfScalar(u8, text, '\n') orelse return error.NoNewlineFound;
 
-  pub fn get(self: @This(), row: usize, col: usize) ?u8 {
-    if (row < self.total_lines and col < self.line_length) {
-      // Account for '\n' at end of line
-      const index = row * (self.line_length + 1) + col;
-      return self.text[index];
+        return .{ .line_length = line_length, .total_lines = count, .text = text };
     }
 
-    return null;
-  }
+    pub fn get_signed(self: @This(), row: isize, col: isize) ?u8 {
+        if (row < 0 or col < 0) {
+            return null;
+        } else {
+            return self.get(@intCast(row), @intCast(col));
+        }
+    }
 
-  pub fn len(self: @This()) usize {
-    return self.total_lines;
-  }
+    pub fn get(self: @This(), row: usize, col: usize) ?u8 {
+        if (row < self.total_lines and col < self.line_length) {
+            // Account for '\n' at end of line
+            const index = row * (self.line_length + 1) + col;
+            return self.text[index];
+        }
 
-  pub fn line_len(self: @This()) usize {
-    return self.line_length;
-  }
+        return null;
+    }
 
-  pub fn lines_iter(buf: @This()) LinesIter {
+    pub fn len(self: @This()) usize {
+        return self.total_lines;
+    }
 
-    return .{
-      .line_length = buf.line_length,
-      .total_lines = buf.total_lines,
-      .text = buf.text
-    };
-  }
+    pub fn line_len(self: @This()) usize {
+        return self.line_length;
+    }
+
+    pub fn lines_iter(buf: @This()) LinesIter {
+        return .{ .line_length = buf.line_length, .total_lines = buf.total_lines, .text = buf.text };
+    }
 };
-
 
 const LinesIter = struct {
-  index: usize = 0,
-  line_length: usize,
-  total_lines: usize,
-  text: []const u8,
-  pub fn next(self: *@This()) ?[]const u8 {
-    const start = self.index * (self.line_length + 1);
-    const end = start + self.line_length;
-    if (end > self.text.len) {
-      return null;
+    index: usize = 0,
+    line_length: usize,
+    total_lines: usize,
+    text: []const u8,
+    pub fn next(self: *@This()) ?[]const u8 {
+        const start = self.index * (self.line_length + 1);
+        const end = start + self.line_length;
+        if (end > self.text.len) {
+            return null;
+        }
+        self.index += 1;
+        return self.text[start..end];
     }
-    self.index += 1;
-    return self.text[start..end];
-  }
 };
 
-pub fn toFixedLineLengthBuffer(text: []const u8) !FixedLineLengthBuffer {
-  var count = std.mem.count(u8, text, "\n");
-  if (text[text.len - 1] != '\n') {
-    count += 1;
-  }
-  const line_length = std.mem.indexOfScalar(u8, text, '\n') orelse return error.NoNewlineFound;
-
-  return .{ .line_length = line_length, .total_lines = count, .text = text };
-}
-
 test "fixedLineLengthBuffer" {
-  const input =
-    \\MMMSXXMASM
-    \\MSAMXMSMSA
-    \\AMXSXMAAMM
-    \\MSAMASMSMX
-    \\XMASAMXAMM
-    \\XXAMMXXAMA
-    \\SMSMSASXSS
-    \\SAXAMASAAA
-    \\MAMMMXMMMM
-    \\MXMXAXMASX
-    \\MXMXAXMASX
+    const input =
+        \\MMMSXXMASM
+        \\MSAMXMSMSA
+        \\AMXSXMAAMM
+        \\MSAMASMSMX
+        \\XMASAMXAMM
+        \\XXAMMXXAMA
+        \\SMSMSASXSS
+        \\SAXAMASAAA
+        \\MAMMMXMMMM
+        \\MXMXAXMASX
+        \\MXMXAXMASX
     ;
 
-  const fixedBuffer = try toFixedLineLengthBuffer(input);
+    const fixedBuffer = try FixedLineLengthBuffer.init(input);
 
-  try std.testing.expectEqual(10, fixedBuffer.line_len());
-  try std.testing.expectEqual(11, fixedBuffer.len());
+    try std.testing.expectEqual(10, fixedBuffer.line_len());
+    try std.testing.expectEqual(11, fixedBuffer.len());
 }
 
 test "part 1 - simple" {
