@@ -144,14 +144,9 @@ fn solve2(input: []const u8, alloc: Allocator) !usize {
             }
         }
 
-        var data = .{
-            .before = beforeMap,
-            .after = afterMap,
-        };
-
-        const s = struct {
-            fn myfunc(ctx: *@TypeOf(data), lhs: usize, rhs: usize) bool {
-                if (ctx.before.get(lhs)) |entry| {
+        const sorter = struct {
+            fn sortByBefore(ctx: @TypeOf(beforeMap), lhs: usize, rhs: usize) bool {
+                if (ctx.get(lhs)) |entry| {
                     if (entry.isSet(rhs)) {
                         return true;
                     }
@@ -162,11 +157,9 @@ fn solve2(input: []const u8, alloc: Allocator) !usize {
 
         if (!isOrderedCorrectly) {
             // fix sorting...
-            std.mem.sort(usize, slice, &data, s.myfunc);
-            // All before and after are valid!
+            std.mem.sort(usize, slice, beforeMap, sorter.sortByBefore);
             sum += slice[slice.len / 2];
         }
-
     }
 
     return sum;
