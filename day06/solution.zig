@@ -34,10 +34,8 @@ fn move(c: Coord, dir: Dir, extent: usize) ?Coord {
 const Dir = enum { North, South, East, West };
 
 fn solve1(input: []const u8, alloc: Allocator) !usize {
-    var visited = std.AutoHashMap(Coord, void).init(alloc);
-    defer visited.deinit();
-    var map = std.AutoHashMap(Coord, u8).init(alloc);
-    defer map.deinit();
+    var visited = std.AutoArrayHashMap(Coord, void).init(alloc);
+    var map = std.AutoArrayHashMap(Coord, u8).init(alloc);
 
     var rowsIter = std.mem.tokenizeScalar(u8, input, '\n');
 
@@ -78,7 +76,7 @@ fn solve1(input: []const u8, alloc: Allocator) !usize {
     return visited.count();
 }
 
-fn detect_loop(map: std.AutoHashMap(Coord, void), initialGuardPos: Coord, extent: usize, visited: *std.AutoHashMap(Coord, Dir)) !bool {
+fn detect_loop(map: std.AutoArrayHashMap(Coord, void), initialGuardPos: Coord, extent: usize, visited: *std.AutoArrayHashMap(Coord, Dir)) !bool {
     var guardDir: Dir = .North;
     var guardPos: Coord = initialGuardPos;
 
@@ -107,8 +105,7 @@ fn detect_loop(map: std.AutoHashMap(Coord, void), initialGuardPos: Coord, extent
 }
 
 fn solve2(input: []const u8, alloc: Allocator) !usize {
-    var map = std.AutoHashMap(Coord, void).init(alloc);
-    defer map.deinit();
+    var map = std.AutoArrayHashMap(Coord, void).init(alloc);
 
     var rowsIter = std.mem.tokenizeScalar(u8, input, '\n');
 
@@ -130,10 +127,8 @@ fn solve2(input: []const u8, alloc: Allocator) !usize {
     }
 
     const initialGuardPos = foundPos orelse return error.NoGuardInInput;
-    var visited = std.AutoHashMap(Coord, void).init(alloc);
-    defer visited.deinit();
-    var local_visited = std.AutoHashMap(Coord, Dir).init(alloc);
-    defer local_visited.deinit();
+    var visited = std.AutoArrayHashMap(Coord, void).init(alloc);
+    var local_visited = std.AutoArrayHashMap(Coord, Dir).init(alloc);
 
     {
         var guardPos = initialGuardPos;
@@ -156,16 +151,17 @@ fn solve2(input: []const u8, alloc: Allocator) !usize {
     }
 
     var sum: usize = 0;
-    var keys = visited.keyIterator();
+    var iter = visited.iterator();
 
-    while (keys.next()) |pos| {
+    while (iter.next()) |entry| {
+        const pos = entry.key_ptr;
         if (initialGuardPos.x == pos.x and initialGuardPos.y == pos.y) {
             continue;
         } else if (map.get(pos.*)) |_| {
             continue;
         } else {
             try map.putNoClobber(pos.*, {});
-            defer _ = map.remove(pos.*);
+            defer _ = map.swapRemove(pos.*);
             defer local_visited.clearRetainingCapacity();
 
             if (try detect_loop(map, initialGuardPos, extent, &local_visited)) {
