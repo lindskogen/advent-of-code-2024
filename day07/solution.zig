@@ -1,8 +1,7 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 
-
-fn recursiveSum(slice: []usize, sum: usize, target: usize) ?usize {
+fn recursiveSum(slice: []usize, sum: usize, target: usize, part2: bool) !?usize {
     if (sum > target) {
         return null;
     }
@@ -14,13 +13,26 @@ fn recursiveSum(slice: []usize, sum: usize, target: usize) ?usize {
         }
     }
 
-    if (recursiveSum(slice[1..], sum + slice[0], target)) |total| {
+    if (try recursiveSum(slice[1..], sum + slice[0], target, part2)) |total| {
         return total;
-    } else if (recursiveSum(slice[1..], (if (sum == 0) 1 else sum) * slice[0], target)) |total| {
+    } else if (try recursiveSum(slice[1..], (if (sum == 0) 1 else sum) * slice[0], target, part2)) |total| {
         return total;
-    } else {
-        return null;
     }
+
+    if (part2) {
+        if (sum == 0) {
+            const next = slice[0] * try std.math.powi(usize, 10, std.math.log10_int(slice[1]) + 1) + slice[1];
+            if (try recursiveSum(slice[2..], next, target, part2)) |total| {
+                return total;
+            }
+        } else {
+            const next = sum * try std.math.powi(usize, 10, std.math.log10_int(slice[0]) + 1) + slice[0];
+            if (try recursiveSum(slice[1..], next, target, part2)) |total| {
+                return total;
+            }
+        }
+    }
+    return null;
 }
 
 fn solve1(input: []const u8, alloc: Allocator) !usize {
@@ -38,49 +50,12 @@ fn solve1(input: []const u8, alloc: Allocator) !usize {
             try list.append(n);
         }
 
-        if (recursiveSum(list.items, 0, target)) |_| {
+        if (try recursiveSum(list.items, 0, target, false)) |_| {
             total += target;
         }
     }
 
     return total;
-}
-
-
-fn recursiveSum2(slice: []usize, sum: usize, target: usize, alloc: Allocator) !?usize {
-    if (sum > target) {
-        return null;
-    }
-    if (slice.len == 0) {
-        if (sum == target) {
-            return sum;
-        } else {
-            return null;
-        }
-    }
-
-    if (try recursiveSum2(slice[1..], sum + slice[0], target, alloc)) |total| {
-        return total;
-    } else if (try recursiveSum2(slice[1..], (if (sum == 0) 1 else sum) * slice[0], target, alloc)) |total| {
-        return total;
-    }
-
-    if (sum == 0) {
-        const prt = try std.fmt.allocPrint(alloc, "{d}{d}", .{ slice[0], slice[1] });
-        defer alloc.free(prt);
-        const parse = try std.fmt.parseInt(usize, prt, 10);
-        if (try recursiveSum2(slice[2..], parse, target, alloc)) |total| {
-            return total;
-        }
-    } else {
-        const prt = try std.fmt.allocPrint(alloc, "{d}{d}", .{ sum, slice[0] });
-        defer alloc.free(prt);
-        const parse = try std.fmt.parseInt(usize, prt, 10);
-        if (try recursiveSum2(slice[1..], parse, target, alloc)) |total| {
-            return total;
-        }
-    }
-    return null;
 }
 
 fn solve2(input: []const u8, alloc: Allocator) !usize {
@@ -98,7 +73,7 @@ fn solve2(input: []const u8, alloc: Allocator) !usize {
             try list.append(n);
         }
 
-        if (try recursiveSum2(list.items, 0, target, alloc)) |_| {
+        if (try recursiveSum(list.items, 0, target, true)) |_| {
             total += target;
         }
     }
@@ -129,15 +104,15 @@ pub fn main() !void {
 
 test "part 1 - simple" {
     const input =
-    \\190: 10 19
-    \\3267: 81 40 27
-    \\83: 17 5
-    \\156: 15 6
-    \\7290: 6 8 6 15
-    \\161011: 16 10 13
-    \\192: 17 8 14
-    \\21037: 9 7 18 13
-    \\292: 11 6 16 20
+        \\190: 10 19
+        \\3267: 81 40 27
+        \\83: 17 5
+        \\156: 15 6
+        \\7290: 6 8 6 15
+        \\161011: 16 10 13
+        \\192: 17 8 14
+        \\21037: 9 7 18 13
+        \\292: 11 6 16 20
     ;
 
     var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
@@ -149,7 +124,6 @@ test "part 1 - simple" {
 
     try std.testing.expectEqual(3749, res);
 }
-
 
 test "part 2 - simple" {
     const input =
