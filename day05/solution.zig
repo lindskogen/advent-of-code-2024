@@ -1,8 +1,6 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 
-const bufcap: usize = 50;
-
 fn solve1(input: []const u8, alloc: Allocator) !usize {
     var sum: usize = 0;
 

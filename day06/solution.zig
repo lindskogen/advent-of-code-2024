@@ -1,8 +1,6 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 
-const bufcap: usize = 50;
-
 const Coord = struct { x: usize, y: usize };
 
 fn move(c: Coord, dir: Dir, extent: usize) ?Coord {
