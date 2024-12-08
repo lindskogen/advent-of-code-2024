@@ -33,7 +33,9 @@ const Dir = enum { North, South, East, West };
 
 fn solve1(input: []const u8, alloc: Allocator) !usize {
     var visited = std.AutoArrayHashMap(Coord, void).init(alloc);
+    defer visited.deinit();
     var map = std.AutoArrayHashMap(Coord, u8).init(alloc);
+    defer map.deinit();
 
     var rowsIter = std.mem.tokenizeScalar(u8, input, '\n');
 
@@ -104,6 +106,7 @@ fn detect_loop(map: std.AutoArrayHashMap(Coord, void), initialGuardPos: Coord, e
 
 fn solve2(input: []const u8, alloc: Allocator) !usize {
     var map = std.AutoArrayHashMap(Coord, void).init(alloc);
+    defer map.deinit();
 
     var rowsIter = std.mem.tokenizeScalar(u8, input, '\n');
 
@@ -126,7 +129,9 @@ fn solve2(input: []const u8, alloc: Allocator) !usize {
 
     const initialGuardPos = foundPos orelse return error.NoGuardInInput;
     var visited = std.AutoArrayHashMap(Coord, void).init(alloc);
+    defer visited.deinit();
     var local_visited = std.AutoArrayHashMap(Coord, Dir).init(alloc);
+    defer local_visited.deinit();
 
     {
         var guardPos = initialGuardPos;
