@@ -98,14 +98,10 @@ fn solve2(input: []const u8, alloc: Allocator) !usize {
         const size = c - '0';
         if (isSpace) {
             try spaces.append(.{ .i = disk.items.len, .size = size, .id = 0 });
-            for (0..size) |_| {
-                try disk.append(.{ .space = {} });
-            }
+            try disk.appendNTimes(.{ .space = {} }, size);
         } else {
             try files.append(.{ .i = disk.items.len, .size = size, .id = max_id });
-            for (0..size) |_| {
-                try disk.append(.{ .file = max_id });
-            }
+            try disk.appendNTimes(.{ .file = max_id }, size);
             max_id += 1;
         }
         isSpace = !isSpace;
@@ -117,13 +113,8 @@ fn solve2(input: []const u8, alloc: Allocator) !usize {
                 break;
             }
             if (space.size >= last.size) {
-                for (0..last.size) |s| {
-                    disk.items[space.i + s] = .{ .file = last.id };
-                }
-
-                for (0..last.size) |s| {
-                    disk.items[last.i + s] = .{ .space = {} };
-                }
+                @memset(disk.items[space.i .. space.i + last.size], .{ .file = last.id });
+                @memset(disk.items[last.i .. last.i + last.size], .{ .space = {} });
 
                 space.i += last.size;
                 space.size -= last.size;
@@ -134,17 +125,6 @@ fn solve2(input: []const u8, alloc: Allocator) !usize {
             }
         }
     }
-
-    // std.debug.print("\n\n", .{ });
-    //
-    // for (disk.items) |b| {
-    //     switch (b) {
-    //         .file => std.debug.print("{d}", .{b.file}),
-    //         .space => std.debug.print(".", .{}),
-    //     }
-    // }
-    //
-    // std.debug.print("\n\n", .{ });
 
     var sum: usize = 0;
     for (disk.items, 0..) |b, i| {
