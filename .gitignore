@@ -1,4 +1,6 @@
 input
+.zig-cache
+zig-out
 
 solution
 solution.o
