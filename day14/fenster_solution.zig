@@ -84,7 +84,7 @@ fn solve2(input: []const u8, _: Allocator, comptime extent: Point) !usize {
     var f = std.mem.zeroInit(c.fenster, .{
         .width = extent.x,
         .height = extent.y,
-        .title = "zig-nes",
+        .title = "aoc-day14",
         .buf = &screen_buffer[0],
     });
 
