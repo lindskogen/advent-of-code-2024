@@ -1,8 +1,4 @@
 const std = @import("std");
-const c = @cImport({
-    @cDefine("FENSTER_HEADER", {});
-    @cInclude("fenster.h");
-});
 const Allocator = std.mem.Allocator;
 
 fn Coord(comptime T: type) type {
@@ -72,7 +68,7 @@ fn print_grid(robots: []Robot, extent: Point) void {
                     break;
                 }
             }
-            std.debug.print("{c}", .{ print });
+            std.debug.print("{c}", .{print});
         }
         std.debug.print("\n", .{});
     }
@@ -119,9 +115,7 @@ fn solve2(input: []const u8, _: Allocator, comptime extent: Point) !usize {
         }
     }
 
-
     return error.NoTreeFound;
-
 }
 
 pub fn main() !void {
