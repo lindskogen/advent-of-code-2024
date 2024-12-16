@@ -199,7 +199,7 @@ fn solve2(input: []const u8, dist: *Distances, alloc: Allocator) !usize {
         }
     };
 
-    var todo = std.PriorityDequeue(State2, void, cmp.cmp).init(alloc, {});
+    var todo = std.PriorityQueue(State2, void, cmp.cmp).init(alloc, {});
 
     const pos = map.indexOf('S') orelse return error.NoStartPos;
     const goal = map.indexOf('E') orelse return error.NoEndPos;
@@ -224,7 +224,7 @@ fn solve2(input: []const u8, dist: *Distances, alloc: Allocator) !usize {
         }
     }
 
-    while (todo.removeMinOrNull()) |st| {
+    while (todo.removeOrNull()) |st| {
         try visited.put(st.pos, {});
         if (st.pos.x == pos.x and st.pos.y == pos.y) {
             continue;
