@@ -86,6 +86,15 @@ fn move_unsafe(c: Point, dir: Dir) Point {
 
 const DirNeighbors = struct { Dir, Dir };
 
+fn opposite_dir(dir: Dir) Dir {
+  return switch (dir) {
+    .East => .West,
+    .West => .East,
+    .North => .South,
+    .South => .North
+  };
+}
+
 fn rotation_neighbors(dir: Dir) DirNeighbors {
   return switch (dir) {
     .East => DirNeighbors { .North, .South },
@@ -108,13 +117,11 @@ fn neighbors(pos: Point, dir: Dir) [3]State {
 
 const State = struct { pos: Point, dir: Dir };
 
-const Visited = std.AutoArrayHashMap(State, void);
+const Distances = std.AutoArrayHashMap(State, usize);
 
 const DIRS = [_]Dir { .West, .East, .North, .South };
 
-fn walk(map: FixedLineLengthBuffer, pos: Point, goal: Point, dir: Dir, alloc: Allocator) !usize {
-  var dist = std.AutoArrayHashMap(State, usize).init(alloc);
-  defer dist.deinit();
+fn walk(map: FixedLineLengthBuffer, pos: Point, goal: Point, dir: Dir, dist: *Distances, alloc: Allocator) !usize {
   var Q = std.AutoArrayHashMap(State, void).init(alloc);
   defer Q.deinit();
 
@@ -130,7 +137,6 @@ fn walk(map: FixedLineLengthBuffer, pos: Point, goal: Point, dir: Dir, alloc: Al
   }
 
   try Q.put(.{.pos = pos, .dir = dir }, {});
-  try dist.put(.{.pos = pos, .dir = dir }, 0);
 
   while (Q.count() > 0) {
     const keys = Q.keys();
@@ -174,24 +180,99 @@ fn walk(map: FixedLineLengthBuffer, pos: Point, goal: Point, dir: Dir, alloc: Al
   return min_dist;
 }
 
-fn solve1(input: []const u8, alloc: Allocator) !usize {
+fn solve1(input: []const u8, dist: *Distances, alloc: Allocator) !usize {
   const map = try FixedLineLengthBuffer.init(input);
 
   const pos = map.indexOf('S') orelse return error.NoStartPos;
   const end_pos = map.indexOf('E') orelse return error.NoEndPos;
   const dir: Dir = .East;
 
-  return walk(map, pos, end_pos, dir, alloc);
 
+  try dist.put(.{.pos = pos, .dir = dir }, 0);
+
+  return walk(map, pos, end_pos, dir, dist,alloc);
 }
 
-// fn solve2(input: []const u8, alloc: Allocator) !usize {
-//
-// }
+const State2 = struct {
+  pos: Point,
+  dir: Dir,
+  cost: usize
+};
+
+fn solve2(input: []const u8, dist: *Distances, alloc: Allocator) !usize {
+  const map = try FixedLineLengthBuffer.init(input);
+  var visited = std.AutoArrayHashMap(Point, void).init(alloc);
+  defer visited.deinit();
+
+  const cmp = struct {
+    fn cmp(_: void, s1: State2, s2: State2) std.math.Order {
+      return std.math.order(s1.cost, s2.cost);
+    }
+  };
+
+
+
+  var todo = std.PriorityDequeue(State2, void, cmp.cmp).init(alloc, {});
+
+  const pos = map.indexOf('S') orelse return error.NoStartPos;
+  const goal = map.indexOf('E') orelse return error.NoEndPos;
+
+  try visited.put(pos, {});
+  try visited.put(goal, {});
+
+  var min_dist: usize = std.math.maxInt(usize);
+  for (dist.keys()) |k| {
+    if (k.pos.x == goal.x and k.pos.y == goal.y) {
+      if (dist.get(k).? < min_dist) {
+        min_dist = dist.get(k).?;
+      }
+    }
+  }
+
+  for (dist.keys()) |k| {
+    if (k.pos.x == goal.x and k.pos.y == goal.y) {
+      if (dist.get(k).? == min_dist) {
+        try todo.add(.{ .cost = min_dist, .dir = k.dir, .pos = k.pos });
+      }
+    }
+  }
+  
+  while (todo.removeMinOrNull()) |st| {
+    try visited.put(st.pos, {});
+    if (st.pos.x == pos.x and st.pos.y == pos.y) {
+      continue;
+    }
+
+    const ns = rotation_neighbors(st.dir);
+
+    const next = [_]State2 {
+      .{ .pos = move_unsafe(st.pos, opposite_dir(st.dir)), .dir = st.dir, .cost = st.cost - 1 },
+      .{ .pos = st.pos, .dir = ns.@"0", .cost = st.cost - 1000 },
+      .{ .pos = st.pos, .dir = ns.@"1", .cost = st.cost - 1000 },
+    };
+
+    for (next) |next_st| {
+      if (dist.getEntry(.{ .dir = next_st.dir, .pos = next_st.pos })) |entry| {
+        if (entry.value_ptr.* == next_st.cost) {
+          try todo.add(next_st);
+          entry.value_ptr.* = std.math.maxInt(usize);
+        }
+      }
+
+    }
+
+  }
+
+
+  return visited.count();
+
+}
 
 pub fn main() !void {
   var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
   const gpa = general_purpose_allocator.allocator();
+  var dist = std.AutoArrayHashMap(State, usize).init(gpa);
+  defer dist.deinit();
 
   const file = try std.fs.cwd().openFile(
     "day16/input",
@@ -201,13 +282,13 @@ pub fn main() !void {
 
   const buffer = try file.readToEndAlloc(gpa, 1000000);
 
-  const res = try solve1(buffer, gpa);
+  const res = try solve1(buffer, &dist, gpa);
 
   std.debug.print("Part 1: {d}\n", .{res});
 
-  // const res2 = try solve2(buffer, gpa);
-  //
-  // std.debug.print("Part 2: {d}\n", .{res2});
+  const res2 = try solve2(buffer, &dist, gpa);
+
+  std.debug.print("Part 2: {d}\n", .{res2});
 }
 
 test "part 1 - simple" {
