@@ -116,46 +116,29 @@ const Distances = std.AutoArrayHashMap(State, usize);
 const DIRS = [_]Dir{ .West, .East, .North, .South };
 
 fn walk(map: FixedLineLengthBuffer, pos: Point, goal: Point, dir: Dir, dist: *Distances, alloc: Allocator) !usize {
-    var Q = std.AutoArrayHashMap(State, void).init(alloc);
+    const cmp = struct {
+        fn cmp(d: *Distances, s1: State, s2: State) std.math.Order {
+            const d1 = d.get(s1) orelse std.math.maxInt(usize);
+            const d2 = d.get(s2) orelse std.math.maxInt(usize);
+
+            return std.math.order(d1, d2);
+        }
+    };
+
+    var Q = std.PriorityQueue(State, *Distances, cmp.cmp).init(alloc, dist);
     defer Q.deinit();
 
-    for (0..map.len()) |y| {
-        for (0..map.line_len()) |x| {
-            if (map.get(y, x) != '#') {
-                try Q.put(.{ .pos = .{ .x = x, .y = y }, .dir = .North }, {});
-                try Q.put(.{ .pos = .{ .x = x, .y = y }, .dir = .South }, {});
-                try Q.put(.{ .pos = .{ .x = x, .y = y }, .dir = .East }, {});
-                try Q.put(.{ .pos = .{ .x = x, .y = y }, .dir = .West }, {});
-            }
-        }
-    }
+    try Q.add(.{ .pos = pos, .dir = dir });
 
-    try Q.put(.{ .pos = pos, .dir = dir }, {});
-
-    while (Q.count() > 0) {
-        const keys = Q.keys();
-        var un = dist.getEntry(keys[0]);
-        for (keys[1..]) |k| {
-            const d = dist.getEntry(k);
-            if (un == null or (d != null and d.?.value_ptr.* < un.?.value_ptr.*)) {
-                un = d;
-            }
-        }
-        const u = un.?;
-
-        _ = Q.swapRemove(u.key_ptr.*);
-
-        const upos = u.key_ptr.pos;
-        const udir = u.key_ptr.dir;
-
-        for (neighbors(upos, udir)) |vst| {
-            if (Q.contains(vst)) {
+    while (Q.removeOrNull()) |u| {
+        for (neighbors(u.pos, u.dir)) |vst| {
+            if (map.get_pos(vst.pos) != '#') {
                 const v = try dist.getOrPutValue(vst, std.math.maxInt(usize));
-                const cost: usize = if (udir == vst.dir) 1 else 1000;
-                const alt = dist.get(.{ .dir = udir, .pos = upos });
+                const cost: usize = if (u.dir == vst.dir) 1 else 1000;
+                const alt = dist.get(.{ .dir = u.dir, .pos = u.pos });
                 if (alt != null and alt.? + cost < v.value_ptr.*) {
                     try dist.put(vst, alt.? + cost);
-                    try Q.put(vst, {});
+                    try Q.add(vst);
                 }
             }
         }
