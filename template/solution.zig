@@ -34,7 +34,7 @@ test "part 1 - simple" {
   const input =
     \\
     \\
-    ;
+  ;
 
   var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
   defer std.debug.assert(general_purpose_allocator.deinit() == .ok);
