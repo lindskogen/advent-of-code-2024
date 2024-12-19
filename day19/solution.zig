@@ -22,7 +22,6 @@ fn search(data: []const u8, maxLen: usize, patterns: *Patterns, memo: *Memo) !us
             sum += n;
         }
     }
-    try memo.put(data, sum);
     return sum;
 }
 
