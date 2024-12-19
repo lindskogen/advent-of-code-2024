@@ -126,14 +126,10 @@ fn solve2(input: []const u8, extent: usize, alloc: Allocator) !?Point {
             return std.math.order(d1, d2);
         }
     };
-
     var Q = std.PriorityQueue(Point, *Distances, cmp.cmp).init(alloc, &dist);
     defer Q.deinit();
 
     while (true) {
-        defer dist.clearRetainingCapacity();
-        defer prev.clearRetainingCapacity();
-
         const xs = rowIter.next() orelse return error.UnevenXY;
         const ys = rowIter.next() orelse return error.UnevenXY;
 
@@ -147,6 +143,7 @@ fn solve2(input: []const u8, extent: usize, alloc: Allocator) !?Point {
         if (visited.count() > 0 and !visited.contains(last_corrupted)) {
             continue;
         }
+
         visited.clearRetainingCapacity();
 
         try dist.put(start_pos, 0);
@@ -181,6 +178,9 @@ fn solve2(input: []const u8, extent: usize, alloc: Allocator) !?Point {
         if (dist.get(goal) == null) {
             return last_corrupted;
         }
+
+        dist.clearRetainingCapacity();
+        prev.clearRetainingCapacity();
     }
 
     return null;
