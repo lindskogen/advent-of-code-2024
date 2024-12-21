@@ -1,6 +1,14 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 
+fn absDiff(comptime T: type, a: T, b: T) T {
+    return if (a > b) a - b else b - a;
+}
+
+fn manhattan_distance(p1: Point, p2: Point) usize {
+    return absDiff(usize, p1.x, p2.x) + absDiff(usize, p1.y, p2.y);
+}
+
 fn Coord(comptime T: type) type {
     return struct {
         x: T,
@@ -100,88 +108,34 @@ fn move(c: Point, dir: Dir, extent: usize) ?Point {
     return null;
 }
 
-fn move_with_step(c: Point, dir: Dir, step: usize, extent: usize) ?Point {
-    var a: ?Point = c;
-    for (0..step) |_| {
-        a = move(a.?, dir, extent);
-        if (a == null) {
-            break;
-        }
-    }
-    return a;
-}
-
-// fn printCtx(map: FixedLineLengthBuffer, ch: Cheat) void {
-//     for (0..map.len()) |y| {
-//         for (0..map.len()) |x| {
-//             const p = Point { .x = x, .y = y };
-//             const c = map.get_pos(p).?;
-//
-//             if (ch.@"0".eql(p) or ch.@"1".eql(p)) {
-//                 std.debug.print("c", .{});
-//             } else {
-//                 std.debug.print("{c}", .{ c });
-//             }
-//         }
-//         std.debug.print("\n", .{});
-//     }
-// }
 
 const DIRS = [_]Dir{ .East, .North, .South, .West };
 const State = struct { pos: Point };
-const Distances = std.AutoArrayHashMap(State, usize);
-const Prev = std.AutoArrayHashMap(State, State);
+const Distances = std.AutoArrayHashMap(Point, usize);
 const Counts = std.AutoArrayHashMap(usize, usize);
 
-const cmp = struct {
-    fn cmp(d: *Distances, s1: State, s2: State) std.math.Order {
-        const d1 = d.get(s1) orelse std.math.maxInt(usize);
-        const d2 = d.get(s2) orelse std.math.maxInt(usize);
-
-        return std.math.order(d1, d2);
-    }
-};
-
-const PQ = std.PriorityQueue(State, *Distances, cmp.cmp);
 
 const Context = struct { map: FixedLineLengthBuffer, start_pos: Point, goal: Point };
 
-fn walk(ctx: Context, dist: *Distances, ignored: ?Point, Q: *PQ) !usize {
-    defer dist.clearRetainingCapacity();
-
-    const initial_state = State{ .pos = ctx.start_pos };
+fn walk(ctx: Context, dist: *Distances) !void {
+    const initial_state = ctx.start_pos;
 
     try dist.put(initial_state, 0);
 
-    try Q.add(initial_state);
+    var state = initial_state;
 
-    while (Q.removeOrNull()) |u| {
-        const step = 1;
-        for (DIRS) |dir| {
-            if (move_with_step(u.pos, dir, step, ctx.map.len())) |vpos| {
-                const vst = State{ .pos = vpos };
-                if (ctx.map.get_pos(vst.pos).? != '#' or (ignored != null and ignored.?.eql(vst.pos))) {
-                    const v = dist.get(vst) orelse std.math.maxInt(usize);
-                    const cost: usize = step;
-                    const alt = dist.get(u);
-                    if (alt != null and alt.? + cost < v) {
-                        try dist.put(vst, alt.? + cost);
-                        try Q.add(vst);
-                    }
+    while (!state.eql(ctx.goal)) {
+        for (DIRS) |d| {
+            if (move(state, d, ctx.map.len())) |p| {
+                if (!dist.contains(p) and ctx.map.get_pos(p) != '#') {
+                    const newDist = dist.get(state).? + 1;
+                    try dist.putNoClobber(p, newDist);
+                    state = p;
+                    break;
                 }
             }
         }
     }
-
-    var entries = dist.iterator();
-    var minValue: usize = std.math.maxInt(usize);
-    while (entries.next()) |entry| {
-        if (entry.key_ptr.pos.eql(ctx.goal) and entry.value_ptr.* < minValue) {
-            minValue = entry.value_ptr.*;
-        }
-    }
-
-    return minValue;
 }
 
 fn solve1(input: []const u8, alloc: Allocator) !usize {
@@ -190,51 +144,57 @@ fn solve1(input: []const u8, alloc: Allocator) !usize {
     var dist = Distances.init(alloc);
     defer dist.deinit();
 
-    var counts = Counts.init(alloc);
-    defer counts.deinit();
-
     const start_pos = map.indexOf('S') orelse return error.NoStartFound;
     const goal = map.indexOf('E') orelse return error.NoEndFound;
 
-    var Q = PQ.init(alloc, &dist);
+    try walk(.{ .map = map, .start_pos = start_pos, .goal = goal }, &dist);
 
-    defer Q.deinit();
-
-    const shortest_path = try walk(.{ .map = map, .start_pos = start_pos, .goal = goal }, &dist, null, &Q);
-
-    for (1..map.len()) |y| {
-        for (1..map.line_len()) |x| {
-            if (map.get(y, x).? == '#') {
-                const pp = Point{ .x = x, .y = y };
-                const path = try walk(.{ .map = map, .start_pos = start_pos, .goal = goal }, &dist, pp, &Q);
-
-                if (path < shortest_path) {
-                    const save = shortest_path - path;
-                    const ptr = try counts.getOrPutValue(save, 0);
-                    ptr.value_ptr.* += 1;
-                }
-            }
-        }
-    }
-
-    var countsIter = counts.iterator();
-
+    const keys = dist.keys();
     var countOver100: usize = 0;
+    for (keys, 0..) |p1, i| {
+        for (keys[i+1..]) |p2| {
+            const d1 = dist.get(p1).?;
+            const d2 = dist.get(p2).?;
 
-    while (countsIter.next()) |entry| {
-        // std.debug.print("There are {d} cheats that save {d} picoseconds. \n", .{ entry.value_ptr.*, entry.key_ptr.* });
+            const d = manhattan_distance(p1, p2);
 
-        if (entry.value_ptr.* >= 100) {
-            countOver100 += 1;
+            if (d == 2 and d2 - d1 - d >= 100) {
+                countOver100 += 1;
+            }
         }
     }
 
     return countOver100;
 }
 
-// fn solve2(input: []const u8, alloc: Allocator) !usize {
-//
-// }
+fn solve2(input: []const u8, alloc: Allocator) !usize {
+    const map = try FixedLineLengthBuffer.init(input);
+
+    var dist = Distances.init(alloc);
+    defer dist.deinit();
+
+    const start_pos = map.indexOf('S') orelse return error.NoStartFound;
+    const goal = map.indexOf('E') orelse return error.NoEndFound;
+
+    try walk(.{ .map = map, .start_pos = start_pos, .goal = goal }, &dist);
+
+    const keys = dist.keys();
+    var countOver100: usize = 0;
+    for (keys, 0..) |p1, i| {
+        for (keys[i+1..]) |p2| {
+            const d1 = dist.get(p1).?;
+            const d2 = dist.get(p2).?;
+
+            const d = manhattan_distance(p1, p2);
+
+            if (d <= 20 and d2 - d1 - d >= 100) {
+                countOver100 += 1;
+            }
+        }
+    }
+
+    return countOver100;
+}
 
 pub fn main() !void {
     var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
@@ -252,9 +212,9 @@ pub fn main() !void {
 
     std.debug.print("Part 1: {d}\n", .{res});
 
-    // const res2 = try solve2(buffer, gpa);
-    //
-    // std.debug.print("Part 2: {d}\n", .{res2});
+    const res2 = try solve2(buffer, gpa);
+
+    std.debug.print("Part 2: {d}\n", .{res2});
 }
 
 test "part 1 - simple" {
