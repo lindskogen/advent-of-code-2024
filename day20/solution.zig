@@ -108,12 +108,8 @@ fn move(c: Point, dir: Dir, extent: usize) ?Point {
     return null;
 }
 
-
 const DIRS = [_]Dir{ .East, .North, .South, .West };
-const State = struct { pos: Point };
 const Distances = std.AutoArrayHashMap(Point, usize);
-const Counts = std.AutoArrayHashMap(usize, usize);
-
 
 const Context = struct { map: FixedLineLengthBuffer, start_pos: Point, goal: Point };
 
@@ -152,7 +148,7 @@ fn solve1(input: []const u8, alloc: Allocator) !usize {
     const keys = dist.keys();
     var countOver100: usize = 0;
     for (keys, 0..) |p1, i| {
-        for (keys[i+1..]) |p2| {
+        for (keys[i + 1 ..]) |p2| {
             const d1 = dist.get(p1).?;
             const d2 = dist.get(p2).?;
 
@@ -181,7 +177,7 @@ fn solve2(input: []const u8, alloc: Allocator) !usize {
     const keys = dist.keys();
     var countOver100: usize = 0;
     for (keys, 0..) |p1, i| {
-        for (keys[i+1..]) |p2| {
+        for (keys[i + 1 ..]) |p2| {
             const d1 = dist.get(p1).?;
             const d2 = dist.get(p2).?;
 
