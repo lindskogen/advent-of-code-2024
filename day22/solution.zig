@@ -35,85 +35,51 @@ fn solve1(input: []const u8, _: Allocator) !usize {
     return sum;
 }
 
-fn solve2(input: []const u8, alloc: Allocator) !isize {
+fn solve2(input: []const u8, alloc: Allocator) !usize {
     var rowIter = std.mem.tokenizeScalar(u8, input, '\n');
-    var list = std.ArrayList(std.ArrayList(usize)).init(alloc);
-    defer list.deinit();
-    var diffs = std.ArrayList(std.ArrayList(isize)).init(alloc);
-    defer diffs.deinit();
+    var bananas = std.AutoArrayHashMap([4]isize, usize).init(alloc);
+    defer bananas.deinit();
+
+    var duplicated_seq = std.AutoArrayHashMap([4]isize, void).init(alloc);
+    defer duplicated_seq.deinit();
+    var seq = std.ArrayList(isize).init(alloc);
+    defer seq.deinit();
 
     while (rowIter.next()) |row| {
-        var l = std.ArrayList(usize).init(alloc);
-        var d = std.ArrayList(isize).init(alloc);
+        defer duplicated_seq.clearRetainingCapacity();
+        defer seq.clearRetainingCapacity();
         var num = try std.fmt.parseInt(usize, row, 10);
-        try l.append(num % 10);
-        try d.append(0);
         var iter = make_iter(num);
         for (0..2000) |_| {
             const n = iter.next();
-            try l.append(n % 10);
-            try d.append(@as(isize, @intCast(n % 10)) - @as(isize, @intCast(num % 10)));
+            const curr = n % 10;
+            const diff = @as(isize, @intCast(curr)) - @as(isize, @intCast(num % 10));
             num = n;
-        }
-        try list.append(l);
-        try diffs.append(d);
-    }
 
-    var cache = std.AutoArrayHashMap([4]isize, isize).init(alloc);
-    defer cache.deinit();
-
-    var maxProfit: isize = 0;
-
-    for (diffs.items) |diff_slice| {
-        var windowIter = std.mem.window(isize, diff_slice.items, 4, 1);
-        // const debug_seq = [_]isize { -2, 1, -1, 3 };
-
-        while (windowIter.next()) |win| {
-            if (cache.contains(win[0..4].*)) {
-                continue;
+            try seq.append(diff);
+            if (seq.items.len > 4) {
+                _ = seq.orderedRemove(0);
             }
 
-            const debug = false; //
-            if (debug) {
-                std.debug.print("\n\nseq: {any} \n", .{win});
-            }
-            var profit: isize = 0;
-            for (diffs.items, 0..) |df, listIndex| {
-                if (std.mem.indexOf(isize, df.items, win)) |idx| {
-                    const price0: isize = @intCast(list.items[listIndex].items[idx]);
-                    if (debug) {
-                        std.debug.print("[] buyer {d} index {d} price {any}\n", .{ list.items[listIndex].items[0], idx, list.items[listIndex].items[idx - 2 .. idx + 2] });
-                    }
-                    const next_price: isize = @intCast(list.items[listIndex].items[idx + 3]);
-
-                    if (debug) {
-                        std.debug.print("profit: {d}\n", .{price0 + (next_price - price0)});
-                    }
-
-                    profit += price0 + (next_price - price0);
-                } else {
-                    if (debug) {
-                        std.debug.print("buyer {d} not found\n", .{list.items[listIndex].items[0]});
-                    }
+            if (seq.items.len == 4) {
+                const key = seq.items[0..4].*;
+                if (!duplicated_seq.contains(key)) {
+                    try duplicated_seq.put(key, {});
+                    const entry = try bananas.getOrPutValue(key, 0);
+                    entry.value_ptr.* += curr;
                 }
             }
-            if (profit > maxProfit) {
-                maxProfit = profit;
-            }
-
-            try cache.putNoClobber(win[0..4].*, profit);
         }
     }
 
-    for (list.items) |l| {
-        l.deinit();
+    var max: usize = 0;
+    for (bananas.values()) |v| {
+        if (v > max) {
+            max = v;
+        }
     }
 
-    for (diffs.items) |d| {
-        d.deinit();
-    }
-
-    return maxProfit;
+    return max;
 }
 
 pub fn main() !void {
