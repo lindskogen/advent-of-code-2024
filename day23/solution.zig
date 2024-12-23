@@ -35,7 +35,6 @@ fn solve1(input: []const u8, alloc: Allocator) !usize {
 
     const all_keys = uniq_computers.keys();
 
-
     var groups = std.StringArrayHashMap(void).init(alloc);
     defer groups.deinit();
 
@@ -55,7 +54,11 @@ fn solve1(input: []const u8, alloc: Allocator) !usize {
 
                             std.mem.sort([]const u8, &sorted_keys, {}, compareStrings);
                             const found_key = try std.mem.join(alloc, "-", &sorted_keys);
-                            try groups.put(found_key, {});
+                            if (!groups.contains(found_key)) {
+                                try groups.put(found_key, {});
+                            } else {
+                                alloc.free(found_key);
+                            }
                         }
                     }
                 }
@@ -63,12 +66,94 @@ fn solve1(input: []const u8, alloc: Allocator) !usize {
         }
     }
 
+    for (groups.keys()) |key| {
+        alloc.free(key);
+    }
+
     return groups.count();
 }
 
-// fn solve2(input: []const u8, alloc: Allocator) !usize {
-//
-// }
+fn solve2(input: []const u8, alloc: Allocator) !usize {
+    var rowIter = std.mem.tokenizeScalar(u8, input, '\n');
+    var uniq_computers = std.StringArrayHashMap(void).init(alloc);
+    defer uniq_computers.deinit();
+
+    while (rowIter.next()) |row| {
+        try uniq_computers.put(row[0..2], {});
+        try uniq_computers.put(row[3..5], {});
+    }
+
+    rowIter.reset();
+
+    const len = uniq_computers.count();
+
+    var adj_matrix = try alloc.alloc(bool, len * len);
+    defer alloc.free(adj_matrix);
+
+    while (rowIter.next()) |row| {
+        const c1 = row[0..2];
+        const c2 = row[3..5];
+
+        const idx1 = uniq_computers.getIndex(c1).?;
+        const idx2 = uniq_computers.getIndex(c2).?;
+
+        adj_matrix[idx1 * len + idx2] = true;
+        adj_matrix[idx2 * len + idx1] = true;
+    }
+
+    const all_keys = uniq_computers.keys();
+
+    var group = std.AutoArrayHashMap(usize, void).init(alloc);
+    defer group.deinit();
+
+    var maxGroupSize: usize = 0;
+
+    var queue = std.ArrayList(usize).init(alloc);
+    defer queue.deinit();
+
+    for (all_keys) |base_name| {
+        group.clearRetainingCapacity();
+        const base_idx = uniq_computers.getIndex(base_name).?;
+
+        try group.put(base_idx, {});
+        try queue.append(base_idx);
+
+        while (queue.popOrNull()) |index| {
+            node: for (adj_matrix[(index * len) .. (index * len) + len], 0..) |is_neighbor, ni| {
+                if (is_neighbor) {
+                    for (group.keys()) |k| {
+                        if (!adj_matrix[(ni * len) + k]) {
+                            continue :node;
+                        }
+                    }
+                    try group.put(ni, {});
+                    try queue.append(ni);
+                }
+            }
+        }
+
+        if (group.count() > maxGroupSize) {
+            maxGroupSize = group.count();
+
+            var named_keys = std.ArrayList([]const u8).init(alloc);
+            defer named_keys.deinit();
+
+            for (group.keys()) |i| {
+                try named_keys.append(all_keys[i]);
+            }
+
+            std.mem.sort([]const u8, named_keys.items, {}, compareStrings);
+
+            for (named_keys.items) |k| {
+               std.debug.print("{s},", .{k});
+            }
+
+            std.debug.print("\n\n", .{});
+        }
+    }
+
+    return maxGroupSize;
+}
 
 pub fn main() !void {
     var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
@@ -86,9 +171,9 @@ pub fn main() !void {
 
     std.debug.print("Part 1: {d}\n", .{res});
 
-    // const res2 = try solve2(buffer, gpa);
-    //
-    // std.debug.print("Part 2: {d}\n", .{res2});
+    const res2 = try solve2(buffer, gpa);
+
+    std.debug.print("Part 2: {d}\n", .{res2});
 }
 
 test "part 1 - simple" {
@@ -137,19 +222,48 @@ test "part 1 - simple" {
     try std.testing.expectEqual(7, res);
 }
 
-// test "part 2 - simple" {
-//   const input =
-//     \\
-//     \\
-//     ;
-//
-//
-//   var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
-//   defer std.debug.assert(general_purpose_allocator.deinit() == .ok);
-//
-//   const gpa = general_purpose_allocator.allocator();
-//
-//   const res = try solve2(input, gpa);
-//
-//   try std.testing.expectEqual(0, res);
-// }
+test "part 2 - simple" {
+    const input =
+        \\kh-tc
+        \\qp-kh
+        \\de-cg
+        \\ka-co
+        \\yn-aq
+        \\qp-ub
+        \\cg-tb
+        \\vc-aq
+        \\tb-ka
+        \\wh-tc
+        \\yn-cg
+        \\kh-ub
+        \\ta-co
+        \\de-co
+        \\tc-td
+        \\tb-wq
+        \\wh-td
+        \\ta-ka
+        \\td-qp
+        \\aq-cg
+        \\wq-ub
+        \\ub-vc
+        \\de-ta
+        \\wq-aq
+        \\wq-vc
+        \\wh-yn
+        \\ka-de
+        \\kh-ta
+        \\co-tc
+        \\wh-qp
+        \\tb-vc
+        \\td-yn
+    ;
+
+    var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
+    defer std.debug.assert(general_purpose_allocator.deinit() == .ok);
+
+    const gpa = general_purpose_allocator.allocator();
+
+    const res = try solve2(input, gpa);
+
+    try std.testing.expectEqual(4, res);
+}
